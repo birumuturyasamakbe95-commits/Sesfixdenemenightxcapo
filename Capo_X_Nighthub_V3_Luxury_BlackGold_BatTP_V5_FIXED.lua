@@ -8920,7 +8920,15 @@ function M.recolorLiveAccents(root)
                     pcall(function() d.BackgroundColor3 = accent end)
                 end
                 if d.Name == "NumBox" and d:IsA("TextBox") then
-                    pcall(function() d.TextColor3 = accent end)
+                    pcall(function()
+                        d.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
+                        d.BackgroundTransparency = 0
+                        d.TextColor3 = Color3.fromRGB(255, 255, 255)
+                        d.TextTransparency = 0
+                        if d.Text == nil or d.Text == "" then
+                            d.Text = "0"
+                        end
+                    end)
                 end
                 if d:IsA("TextBox") and d:GetAttribute("ThemeAccent") then
                     pcall(function() d.TextColor3 = accent end)
@@ -9556,9 +9564,13 @@ local function isForcedAccent(d)
         or d:GetAttribute("AccentGradient") or d:GetAttribute("ThemeChip") then
         return true
     end
+    -- NumBox intentionally excluded: gold bg + gold text = invisible numbers
     local n = tostring(d.Name)
+    if n == "NumBox" or n == "NumValue" or n == "SpeedBox" then
+        return false
+    end
     return n == "SectionLabel" or n == "SectionBar" or n == "CapoChip"
-        or n == "AccentBar" or n == "NumBox" or n == "MainStroke"
+        or n == "AccentBar" or n == "MainStroke"
         or n == "HeaderDiscord" or n == "DiscordTag" or n == "BtnStroke"
 end
 
@@ -9592,7 +9604,13 @@ function M.sweepAccentRecolor()
 
                 if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
                     pcall(function()
-                        if forced or M.isAccentish(d.TextColor3) then
+                        local nm = tostring(d.Name or "")
+                        if nm == "NumBox" or nm == "NumValue" or nm == "SpeedBox" then
+                            d.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
+                            d.BackgroundTransparency = 0
+                            d.TextColor3 = Color3.fromRGB(255, 255, 255)
+                            d.TextTransparency = 0
+                        elseif forced or M.isAccentish(d.TextColor3) then
                             d.TextColor3 = accent
                         end
                     end)
@@ -9601,6 +9619,11 @@ function M.sweepAccentRecolor()
                 if d:IsA("GuiObject") and not d:IsA("ImageLabel") then
                     pcall(function()
                         local n = tostring(d.Name)
+                        if n == "NumBox" or n == "NumValue" or n == "SpeedBox" then
+                            d.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
+                            d.BackgroundTransparency = 0
+                            return
+                        end
                         local isShell = (n == "Main" or n == "MainFrame" or n == "Frame"
                             or n == "ContentRoot" or n == "Dim" or n == "CustomBgOverlay"
                             or n == "IdleDimOverlay" or n == "Overlay")
@@ -10138,7 +10161,7 @@ M.stealPauseMode = 75
         if d.antiSummerBaseEnabled ~= nil then M.antiSummerBaseEnabled = d.antiSummerBaseEnabled == true
         elseif d.antiSummerBase ~= nil then M.antiSummerBaseEnabled = d.antiSummerBase == true end
         M.uiLocked = false
-        if d.autoTPEnabled~=nil then M.autoTPEnabled=d.autoTPEnabled end
+        if d.autoTPEnabled~=nil then M.autoTPEnabled=(d.autoTPEnabled==true) end
         M.mirrorTPDownEnabled=true -- always on
         if d.noPlayerCollision~=nil then M.noPlayerCollisionEnabled=d.noPlayerCollision==true end
         if d.perfectHitEnabled~=nil then M.perfectHitEnabled=d.perfectHitEnabled~=false; M.tpBatSureHitEnabled=M.perfectHitEnabled end
@@ -11261,8 +11284,10 @@ local function uiStepNumberRow(parent, label, value, minV, maxV, callback)
     end
     local minusBtn = mkBtn("-", -118)
     local vl = Instance.new("TextBox"); vl.Name="NumBox"; vl.Position=UDim2.new(1,-86,0.5,-14); vl.Size=UDim2.new(0,50,0,28)
-    vl.BackgroundColor3=Color3.fromRGB(0,0,0); vl.BorderSizePixel=0; vl.Text=tostring(cur)
+    vl.BackgroundColor3=Color3.fromRGB(8,8,10); vl.BorderSizePixel=0; vl.Text=tostring(math.floor((tonumber(cur) or 0) * 10 + 0.5) / 10)
     vl.TextColor3=Color3.fromRGB(255,255,255); vl.TextSize=14; vl.Font=Enum.Font.GothamBold
+    vl.TextTransparency=0; vl.BackgroundTransparency=0
+    vl:SetAttribute("NoTheme", true)
     vl.ClearTextOnFocus=false; vl.TextXAlignment=Enum.TextXAlignment.Center; vl.Parent=r
     Instance.new("UICorner",vl).CornerRadius=UDim.new(0,9)
     local vst = Instance.new("UIStroke"); vst.Color=Color3.fromRGB(40,40,45); vst.Thickness=1; vst.Transparency=0.35; vst.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; vst.Parent=vl
@@ -17198,6 +17223,28 @@ task.spawn(function()
 end)
 
 pcall(function() if M.restoreGameAudio then M.restoreGameAudio() end end)
+
+-- Capo deferred feature reapply (toggles that must survive rejoin)
+task.defer(function()
+    task.wait(0.6)
+    pcall(function()
+        if M.autoTPEnabled then
+            if M.startAutoTP then M.startAutoTP() end
+            if M.setAutoTPVisual then M.setAutoTPVisual(true) end
+        end
+        if M.autoBatEnabled and M.queueAutoBatStart then M.queueAutoBatStart() end
+        if M.autoLeftEnabled and M.startAutoLeft then M.startAutoLeft() end
+        if M.autoRightEnabled and M.startAutoRight then M.startAutoRight() end
+        if M.Steal and M.Steal.AutoStealEnabled and M.startAutoSteal then M.startAutoSteal() end
+        if M.antiRagdollEnabled and M.startAntiRagdoll then M.startAntiRagdoll() end
+        if M.batTPEnabled and M.startBatTPAimbot then M.startBatTPAimbot() end
+    end)
+    task.wait(1.2)
+    pcall(function()
+        if M.autoTPEnabled and M.startAutoTP then M.startAutoTP() end
+    end)
+end)
+
 task.defer(function()
     task.wait(1)
     pcall(function() if M.restoreGameAudio then M.restoreGameAudio() end end)
